@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PVT Test</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 32px;
+      font-family: sans-serif;
+      background: black;
+      color: white;
+      text-align: center;
+      user-select: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>Click to start</body>
+
+<script>
+let results = [];
+let startTime;
+
+let trials = 20;
+let currentTrial = 0;
+
+let state = "idle"; // idle | waiting | go
+let tooEarly = 0;
+
+let user = new URLSearchParams(window.location.search).get("user") || "unknown";
+
+document.body.onclick = function () {
+
+  // START (only first click)
+  if (state === "idle") {
+    state = "waiting";
+    document.body.innerHTML = "Wait for green...";
+    nextTrial();
+    return;
+  }
+
+  // CORRECT RESPONSE
+  if (state === "go") {
+    let rt = Date.now() - startTime;
+    results.push(rt);
+
+    currentTrial++;
+    state = "waiting";
+
+    document.body.innerHTML = "Reaction: " + rt + " ms";
+
+    if (currentTrial < trials) {
+      setTimeout(nextTrial, 800);
+    } else {
+      finish();
+    }
+    return;
+  }
+
+  // TOO EARLY
+  if (state === "waiting") {
+    tooEarly++;
+    document.body.innerHTML = "TOO EARLY";
+  }
+};
+
+function nextTrial() {
+  document.body.style.background = "black";
+  document.body.innerHTML = "Wait...";
+
+  let delay = 1000 + Math.random() * 3000;
+
+  setTimeout(() => {
+    state = "go";
+    document.body.style.background = "green";
+    document.body.innerHTML = "CLICK!";
+    startTime = Date.now();
+  }, delay);
+}
+
+function finish() {
+  let avg = results.reduce((a,b)=>a+b,0) / results.length;
+  let lapses = results.filter(r => r > 500).length;
+
+  state = "idle";
+
+  document.body.style.background = "black";
+  document.body.innerHTML =
+    "DONE<br><br>" +
+    "User: " + user + "<br>" +
+    "Avg: " + Math.round(avg) + " ms<br>" +
+    "Lapses: " + lapses + "<br>" +
+    "Too Early: " + tooEarly;
+
+  fetch("https://script.google.com/macros/s/AKfycbybhI0HxIZHI-sShCLiYTYylPCg3dEp4V2J4ei5nh9Q-N7EYGYB-SyonukcO0U1SiGYyw/exec", {
+    method: "POST",
+    body: JSON.stringify({
+      user,
+      avg,
+      lapses,
+      tooEarly,
+      all: results,
+      time: new Date().toISOString()
+    })
+  });
+}
+</script>
+
+</html>
